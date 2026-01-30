@@ -1,82 +1,73 @@
 import streamlit as st
-import numpy as np
-from PIL import Image
-import json
-import io
-import os
 import tensorflow as tf
-from src.gradcam import make_gradcam_heatmap, overlay_heatmap_on_image
+import numpy as np
+import os
+from PIL import Image
 
+# =====================
+# Base directory
+# =====================
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+MODEL_PATH = os.path.join(BASE_DIR, "models", "plant_disease_model.h5")
+CLASS_PATH = os.path.join(BASE_DIR, "models", "classes.txt")
+
+IMAGE_SIZE = (224, 224)
+
+# =====================
+# Load model
+# =====================
 @st.cache_resource
-def load_model_and_assets(model_path='models/best_model.h5'):
-model = tf.keras.models.load_model(model_path)
-class_path = os.path.join(os.path.dirname(model_path), 'class_names.json')
-if os.path.exists(class_path):
-with open(class_path) as f:
-class_names = json.load(f)
-else:
-class_names = []
-# recommendations.json optional
-rec_path = os.path.join(os.path.dirname(model_path), 'recommendations.json')
-if os.path.exists(rec_path):
-with open(rec_path) as f:
-recs = json.load(f)
-else:
-recs = {}
-return model, class_names, recs
+def load_model():
+    if not os.path.exists(MODEL_PATH):
+        st.error(f"❌ Model file not found at:\n{MODEL_PATH}")
+        st.stop()
+    return tf.keras.models.load_model(MODEL_PATH)
 
+# =====================
+# Load classes
+# =====================
+def load_classes():
+    if os.path.exists(CLASS_PATH):
+        with open(CLASS_PATH, "r") as f:
+            return f.read().splitlines()
+    return []
 
-model, class_names, recs = load_model_and_assets()
+# =====================
+# Image preprocessing
+# =====================
+def preprocess_image(image):
+    image = image.resize(IMAGE_SIZE)
+    image = np.array(image) / 255.0
+    image = np.expand_dims(image, axis=0)
+    return image
 
+# =====================
+# Streamlit UI
+# =====================
+st.title("🌿 Plant Disease Detection")
+st.write("Upload a plant leaf image to predict the disease")
 
-st.title('Plant Disease Detection')
-st.write('Upload a leaf image and the model will predict the disease.')
+model = load_model()
+class_names = load_classes()
 
+uploaded_file = st.file_uploader(
+    "Choose a leaf image",
+    type=["jpg", "jpeg", "png"]
+)
 
-uploaded = st.file_uploader('Upload an image', type=['png','jpg','jpeg'])
-if uploaded is not None:
-file_bytes = np.asarray(bytearray(uploaded.read()), dtype=np.uint8)
-img = Image.open(io.BytesIO(file_bytes)).convert('RGB')
-st.image(img, caption='Uploaded', use_column_width=True)
+if uploaded_file:
+    image = Image.open(uploaded_file).convert("RGB")
+    st.image(image, caption="Uploaded Image", use_column_width=True)
 
+    processed_image = preprocess_image(image)
+    prediction = model.predict(processed_image)
 
-# Preprocess
-img_resized = img.resize((224,224))
-x = np.array(img_resized)[None, ...]
-x = tf.keras.applications.efficientnet.preprocess_input(x.astype('float32'))
+    idx = np.argmax(prediction)
+    confidence = np.max(prediction) * 100
 
+    label = class_names[idx] if class_names else f"Class {idx}"
 
-preds = model.predict(x)
-top_idx = np.argmax(preds[0])
-top_conf = float(preds[0][top_idx])
-label = class_names[top_idx] if class_names else str(top_idx)
+    st.success(f"🦠 Disease: **{label}**")
+    st.info(f"📊 Confidence: **{confidence:.2f}%**")
 
-
-st.markdown(f'**Prediction:** {label}
-**Confidence:** {top_conf:.2%}')
-
-
-# Recommendation
-rec = recs.get(label, {}).get('action', 'No recommendation available.')
-st.write('**Recommendation:**')
-st.write(rec)
-
-
-# Grad-CAM
-try:
-last_conv = None
-# heuristics to find last conv layer name
-for layer in reversed(model.layers):
-if 'conv' in layer.name:
-last_conv = layer.name
-break
-if last_conv is None:
-last_conv = model.layers[-3].name
-
-
-heatmap = make_gradcam_heatmap(x, model, last_conv)
-overlay = overlay_heatmap_on_image(img_resized, heatmap)
-st.image(overlay, caption='Grad-CAM Overlay', use_column_width=True)
-except Exception as e:
-st.write('Grad-CAM failed:', e)

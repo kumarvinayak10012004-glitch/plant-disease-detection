@@ -1,12 +1,8 @@
-# Core
-tensorflow==2.20.0
+streamlit==1.32.0
 numpy
 pandas
-scikit-learn
 matplotlib
-opencv-python
 Pillow
-streamlit
-albumentations
-tqdm
-tensorflow-hub
+opencv-python-headless
+tensorflow
+protobuf==3.20.3
