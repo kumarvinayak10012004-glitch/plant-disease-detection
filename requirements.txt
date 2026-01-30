@@ -1,8 +1,19 @@
-streamlit==1.32.0
-numpy
-pandas
-matplotlib
-Pillow
-opencv-python-headless
-tensorflow
-protobuf==3.20.3
+# Streamlit latest compatible with numpy 2.x
+streamlit>=1.25.0
+
+# Use latest numpy for Python 3.13
+numpy>=2.2.6
+
+# Latest Pillow compatible with Python 3.13
+Pillow>=12.0.0
+
+# Other dependencies
+pandas>=2.3.3
+matplotlib>=3.10.7
+opencv-python-headless>=4.12.0.88
+tensorflow>=2.20.0
+protobuf>=3.20.3
+altair>=5.5.0,<6
+blinker>=1.9.0,<2
+cachetools>=5.5.2,<6
+click>=8.3.0,<9
