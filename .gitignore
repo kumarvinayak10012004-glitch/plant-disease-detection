@@ -1,0 +1,9 @@
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Dataset archive
+data/plant_village.zip
+
+# Redundant full model
+models/plant_disease_v2/*.keras
